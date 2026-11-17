@@ -21,6 +21,26 @@ No checksums decide equality. SHA-256 fingerprints are diagnostic only and inclu
 
 A matching result proves neither query equivalence over other databases nor deterministic ordering. An index can change the rows chosen by unordered LIMIT, ordering among ties, floating-point aggregation order or group_concat order. These remain observable differences, not automatically tool bugs. No floating-point tolerance is applied.
 
+## Difference evidence (v0.2)
+
+The single-case report remains schema_version 1 with additive `difference`, `environment.tool_version` and `environment.comparison_contract` fields. Existing case JSON and exit codes remain compatible. `difference` is null for incomplete comparison, including diagnosis timeout.
+
+Completed comparisons provide exact bag occurrence totals satisfying `matched + missing = baseline_rows` and `matched + extra = candidate_rows`. Missing means baseline minus candidate; extra is the reverse. Schema-only or order-only mismatch can have zero missing/extra counts. The equality predicate still decides the verdict from exact typed rows and schemas; the explanation is derived evidence, never a hash-based substitute.
+
+Schema changes are indexed by column position, even when names repeat. Missing/extra examples reference the first occurrence of each excess row class in the original query order, not the sorted fingerprint order or a primary key. `count` is that class's excess multiplicity. Ordered `first_mismatch` includes changed column indices/type names, or `ABSENT` when a row/column does not exist; absence is not SQL NULL. Same types can have different values.
+
+Examples and changed-column lists are capped at ten, with full total counts and explicit truncation. No raw row values, individual cell sizes or per-row fingerprints are exported. Existing whole-result hashes do not make a report anonymous. Diagnosis is checked against the comparison deadline before any final result is assigned.
+
+## Suite contract (v0.2)
+
+Manifest schema: integer `suite_version:1`, optional title, `timeout_seconds` finite in [0.01,600] (default30), and1–50 `cases` objects each containing exactly `id` and `case`. IDs are unique1–80 ASCII letters/digits/underscore/hyphen. Case-file aliases are rejected; separate cases may share a database. Paths resolve relative to the manifest. Each case is read once during preflight, then run from the prepared configuration. Case inputs use their own case-file directory for database paths.
+
+All case paths and identifiable database/sidecar paths are protected before queries/output. Invalid JSON or invalid case structure is retained as an item error. Per-input2MB and cumulative16MB limits count actual bytes read; exceeding an input byte budget aborts the whole preflight so a partial protection inventory cannot publish files. Unparseable or unreadable JSON cannot identify a database reference and is reported as such; this is not protection against an adversary changing files during execution.
+
+`load_suite(path)` returns a prepared `SuitePlan`; `run_suite(plan)` returns a dict with kind `suite`, schema_version1, all ordered items, counts and notes. Execution states are complete, error, timeout or not_run. Each item has a result status equivalent/different/inconclusive. Invalid input, unrun/timeout or blocked query has precedence over differences; no input disappears. Empty item lists cannot pass. There is no expected-failure field or average score. Suite HTML recomputes the worst status from item records.
+
+Each case takes its own snapshot. The execution deadline starts at run_suite, and limits the effective per-phase timeout by remaining time. It is checked before and after each case. A case returning after the deadline is marked timeout with its report discarded, and later valid cases are not_run. Invalid preflight items remain error. Preflight itself is separately byte-bounded, not subject to a hard elapsed-time watchdog. All native operation and memory limitations of the single-case engine still apply.
+
 ## SQL boundary
 
 The deny-by-default authorizer is installed before preparing both EXPLAIN QUERY PLAN and the actual query. It remains active during fetching. It permits SELECT/recursive SELECT, reads of known main-database ordinary tables/views/schema objects, and an explicit set of built-in functions. Unknown actions and functions return SQLITE_DENY, never SQLITE_IGNORE. Implicit virtual modules such as json_each, dbstat and pragma_* are not admitted simply because they were absent from the schema preflight.

@@ -40,6 +40,22 @@ planbench-sqlite compare case.json --json report.json --html report.html
 
 `ordered` 比较完整行序列；`multiset` 忽略顺序但保留重复次数。整数 1、实数 1.0、文本 '1' 与字节串不是同一种结果。报告中的哈希只用于留档，不作为相等判据。
 
+## v0.2：不仅判不同，还给出差异证据
+
+报告增加精确的匹配／缺失／新增行次数、按列位置的结构变化，以及最多十组类型与位置示例；有序比较还会指出第一处不同的行、列。示例指向该侧查询原始返回顺序中的首次出现，索引从0开始，不是主键。纯顺序变化可能没有缺失或新增行，但仍不符合有序契约。不会额外导出原始行值、字符串长度或逐行哈希。
+
+## 一条命令跑完整套件
+
+```sh
+planbench-sqlite suite demo-output/suite-clean.json --json suite.json --html suite.html
+planbench-sqlite suite demo-output/suite-different.json
+planbench-sqlite suite demo-output/suite-inconclusive.json
+```
+
+三条分别应退出0、1、2。套件保留每个案例，任何非法、受阻、超时或未运行项都会让整套为inconclusive；否则只要有不同就different；必须全相同才equivalent。不能平均掉失败，也不能让空套件过关。
+
+自定义清单使用`suite_version:1`、`title`、`timeout_seconds`及`cases:[{"id":"lookup","case":"case.json"}]`。支持1–50个唯一案例；文件路径相对清单，禁止重复ID或同文件别名。每个案例独立取快照，不宣称整套共用一个快照。输入预检按字节预算限制，执行总时限仍是协作式，不是强制杀进程的硬上限。更多格式见英文说明。
+
 ## 为什么不直接看一次耗时
 
 进度回调次数不等于精确 VM 指令数；开启观测会增加开销。报告中的耗时包含观测和结果编码，不代表生产环境加速。执行计划的文本会随 SQLite 版本改变，不能仅凭 SCAN／SEARCH 字样自动评优。

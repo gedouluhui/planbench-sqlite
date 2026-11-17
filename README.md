@@ -63,6 +63,38 @@ The database path is relative to the case file, not your shell's directory. Exis
 
 You can also compare two different SELECT queries by changing `candidate.sql` and its bound parameters. Candidate indexes are optional. Only ordinary nonunique indexes over explicitly named existing columns are supported. There is no arbitrary setup SQL or source migration.
 
+## Pinpoint the difference without exporting your data
+
+A `different` result now includes exact matched, missing and extra **row occurrence** counts, schema changes by column position, and bounded type/location examples. Ordered comparisons also identify the first unequal row and changed column positions. Reordering can give zero missing/extra rows while still failing ordered comparison.
+
+Examples point to the first occurrence in that arm's **original returned order**, using zero-based indices—not primary keys or sorted-hash order. At most ten examples/column details are shown; totals remain exact and truncation is explicit. Raw values, lengths and per-row hashes are not added to reports. Same-type cells can still hold different values.
+
+## Run a regression suite in CI
+
+Create `suite.json`:
+
+```json
+{
+  "suite_version": 1,
+  "title": "Orders query regressions",
+  "timeout_seconds": 30,
+  "cases": [
+    {"id": "customer-lookup", "case": "case.json"},
+    {"id": "another-query", "case": "another-case.json"}
+  ]
+}
+```
+
+```sh
+planbench-sqlite suite suite.json --json suite-report.json --html suite-report.html
+```
+
+Every case is accounted for, in input order. Any invalid, blocked, timed-out or unrun case makes the suite inconclusive (exit 2); otherwise any difference gives exit 1; only all equivalent gives exit 0. There is no averaging away failures or passing empty suites. Each case takes an **independent snapshot**; this is not a common snapshot across the entire suite.
+
+Manifests allow 1–50 unique cases, unique IDs and no repeated file aliases. Paths are relative to the manifest. Input preflight is byte-bounded (2 MB each / 16 MB total), and the run has a cooperative overall time budget. Input-budget exhaustion rejects the entire preflight before outputs, rather than publishing from an incomplete protection inventory. Output protection covers the manifest, every case and every identifiable database/sidecar, including invalid cases.
+
+The demo also generates `suite-clean.json`, `suite-different.json` and `suite-inconclusive.json` with actual expected exit codes 0, 1 and 2. The [example suite report](docs/suite.html) comes from the real generated inconclusive suite, not a hand-authored mockup.
+
 ## What the result means
 
 | Result | Exit | Meaning |
@@ -133,6 +165,7 @@ For strict duplicate-key/nonfinite JSON rejection and output protection, use the
 ```sh
 python -m pip install -e .
 python -m unittest discover -s tests -v
+python scripts/mutation_check.py
 ```
 
 Tests execute real SQLite databases and real CLI subprocesses, including source-file protection, committed WAL data, result-type distinctions, duplicate multiplicity, incomplete runs and report injection strings. No paid service is needed. Build with `python -m pip install build` followed by `python -m build`.

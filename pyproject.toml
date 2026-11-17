@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "planbench-sqlite"
-version = "0.1.0"
+version = "0.2.0"
 description = "Same SQLite snapshot, two query plans, exact bounded result comparison, one offline report."
 readme = "README.md"
 requires-python = ">=3.11"

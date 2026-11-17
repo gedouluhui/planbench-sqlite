@@ -4,6 +4,7 @@ from html import escape
 import math
 
 CSS = """
+.evidence{margin:28px 0;padding:24px;background:white;border:1px solid #ced8e4;border-left:4px solid #6990b5;border-radius:5px}.evidence .metrics{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}.suite-ledger{width:100%;min-width:620px;border-collapse:collapse;font-size:14px}.suite-ledger th,.suite-ledger td{text-align:left;padding:13px 10px;border-bottom:1px solid #ced8e4;overflow-wrap:anywhere}.case-detail{padding:20px;background:white;border:1px solid #ced8e4;border-radius:5px;margin:18px 0}.case-detail>summary{font-size:17px;font-weight:650;color:#152e4b}.case-detail .tracks{margin-top:20px}.table-scroll{overflow-x:auto}html{scroll-behavior:smooth}
 :root{color-scheme:light;--ink:#152e4b;--muted:#56677b;--paper:#f0f3f8;--line:#ced8e4;--green:#22634e;--red:#9f3941;--amber:#805515}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 'Segoe UI',system-ui,sans-serif}
 a{color:inherit}a:focus-visible,summary:focus-visible{outline:3px solid #316bc5;outline-offset:5px}.skip{position:absolute;top:-80px;padding:12px;background:white}.skip:focus{top:8px;z-index:5}
@@ -25,6 +26,8 @@ def _e(value):
 def _number(value, decimal=False):
     if type(value) not in (int, float) or not math.isfinite(value):
         return 'Not available'
+    if decimal and 0 < value < 0.0001:
+        return '<0.0001'
     return f'{value:,.4f}' if decimal else f'{value:,}'
 
 
@@ -55,16 +58,43 @@ def _track(name, arm):
     return '<section class="track" aria-label="' + name + '"><div class="track-head"><h2 style="margin:0;font-size:21px">' + name + '</h2><small>' + _e(arm.get('status')) + '</small></div><div class="track-body">' + error + '<div class="stage"><p class="stage-label">Query input</p><pre>' + _e(arm.get('sql')) + '</pre>' + indexes + '</div><div class="stage"><p class="stage-label">SQLite execution plan</p>' + _plan(arm.get('plan', [])) + '</div><div class="stage"><p class="stage-label">Observed output</p>' + partial + '<div class="metrics">' + boxes + '</div><details><summary>Result schema and fingerprint</summary><p class="muted">Columns: ' + _e(', '.join(arm.get('columns', []))) + '</p><p class="hash">SHA-256: ' + _e(arm.get('result_sha256')) + '</p><p class="muted">The fingerprint is diagnostic. Equality uses exact typed rows, not hashes.</p></details></div></div></section>'
 
 
+def report_state(report):
+    equality = report.get('equality', {})
+    completed = all(report.get(key, {}).get('status') == 'complete' for key in ('baseline', 'candidate'))
+    if completed and equality.get('comparable') is True:
+        if report.get('status') == 'equivalent' and equality.get('equivalent') is True:
+            return 'equivalent'
+        if report.get('status') == 'different' and equality.get('equivalent') is False:
+            return 'different'
+    return 'inconclusive'
+
+
+def difference_section(report):
+    d = report.get('difference')
+    if not d or report_state(report) == 'inconclusive':
+        return ''
+    if report.get('status') == 'equivalent':
+        return '<section class="evidence"><h2>Difference evidence</h2><p class="muted">No schema or required row differences in this completed comparison.</p></section>'
+    metrics = ''.join('<div class="metric"><strong>' + _e(d.get(key)) + '</strong><span>' + label + '</span></div>' for key, label in [('matched_rows', 'Matched occurrences'), ('missing_rows', 'Missing from candidate'), ('extra_rows', 'Extra in candidate'), ('schema_change_count', 'Changed schema positions')])
+    details = []
+    for change in d.get('schema_changes', []):
+        details.append('<li>Column ' + _e(change['column_index']) + ': ' + _e(change['baseline_name']) + ' → ' + _e(change['candidate_name']) + '</li>')
+    mismatch = d.get('first_mismatch')
+    if mismatch:
+        details.append('<li>First different row position: <b>' + _e(mismatch['row_index']) + '</b>. Bag counts can still match when only order differs.</li>')
+        for column in mismatch['columns']:
+            details.append('<li>Column ' + _e(column['column_index']) + ': ' + _e(column['baseline_type']) + ' → ' + _e(column['candidate_type']) + ' (same type can contain different values)</li>')
+    for key, label in [('missing_examples', 'Baseline'), ('extra_examples', 'Candidate')]:
+        for example in d.get(key, []):
+            details.append('<li>' + label + ' row ' + _e(example['row_index']) + ': ' + _e(example['count']) + ' excess occurrence(s); types ' + _e(', '.join(example['column_types'])) + (' …' if example.get('columns_truncated') else '') + '</li>')
+    truncated = '<p class="muted">Examples are truncated; totals above are exact.</p>' if d.get('examples_truncated') else ''
+    return '<section class="evidence"><h2>Difference evidence</h2><div class="metrics">' + metrics + '</div><p class="muted">Positions are zero-based in each query\'s original returned order, not primary keys. Examples use the first occurrence of a distinct excess row. Values and per-row hashes are not exported.</p><ul class="muted">' + ''.join(details) + '</ul>' + truncated + '</section>'
+
+
 def render_html(report: dict) -> str:
     """Render the public report dict as one offline, script-free document."""
     equality = report.get('equality', {})
-    completed = all(report.get(key, {}).get('status') == 'complete' for key in ('baseline', 'candidate'))
-    state = 'inconclusive'
-    if completed and equality.get('comparable') is True:
-        if report.get('status') == 'equivalent' and equality.get('equivalent') is True:
-            state = 'equivalent'
-        elif report.get('status') == 'different' and equality.get('equivalent') is False:
-            state = 'different'
+    state = report_state(report)
     headings = {'equivalent': 'Same rows. Different route.', 'different': 'The results differ.', 'inconclusive': 'Comparison not established.'}
     reasons = equality.get('reason') or 'No conclusion was established. Inspect the evidence below.'
     if state == 'inconclusive' and report.get('status') != 'inconclusive':
@@ -76,4 +106,4 @@ def render_html(report: dict) -> str:
     limits = ''.join('<div><dt>' + _e(k.replace('_', ' ')) + '</dt><dd>' + _e(v) + '</dd></div>' for k, v in report.get('limits', {}).items())
     notes = ''.join('<li>' + _e(note) + '</li>' for note in report.get('notes', []))
     env, source = report.get('environment', {}), report.get('source', {})
-    return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + _e(report.get('title', 'PlanBench experiment')) + ' · PlanBench SQLite</title><style>' + CSS + '</style></head><body><a class="skip" href="#main">Skip to results</a><header><a href="#main"><span class="brand-mark" aria-hidden="true"></span>PLANBENCH <small> / SQLite</small></a><span>LOCAL EXPERIMENT / OFFLINE EVIDENCE</span></header><main id="main"><div class="intro"><div class="eyebrow">' + _e(report.get('title')) + '</div><h1>' + headings[state] + '</h1><span class="status ' + state + '">' + state + '</span><p>' + _e(reasons) + '</p></div><div class="context"><span>Database <strong>' + _e(source.get('database')) + '</strong></span><span>SQLite <strong>' + _e(env.get('sqlite')) + '</strong></span><span>Python <strong>' + _e(env.get('python')) + '</strong></span><span>Comparison <strong>' + _e(mode) + '</strong></span><span>Snapshot <strong>' + _e(_number(source.get('snapshot_bytes'))) + ' B</strong></span></div><div class="tracks">' + _track('Baseline', report.get('baseline', {})) + _track('Candidate', report.get('candidate', {})) + '</div><section class="verdict"><h2>What this establishes</h2><div><strong>' + _e(description) + '</strong><p>Only for this database snapshot and these parameters. This is not a proof of SQL equivalence for all data.</p><p style="margin-top:12px">' + _e(ratio_text) + ' <b>Not a speedup.</b> Progress callbacks are instrumented observations, not exact VM instructions. Timings include that instrumentation.</p></div></section><div class="footgrid"><section><h2>Experiment limits</h2><dl>' + limits + '</dl><p>Limits are cooperative, not hard process isolation. A native SQLite operation can delay cancellation.</p></section><section><h2>Read before sharing</h2><ul>' + notes + '</ul></section></div></main><footer>PlanBench SQLite · No network requests. No result rows or parameter values embedded. SQL literals and identifiers remain visible.</footer></body></html>\n'
+    return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + _e(report.get('title', 'PlanBench experiment')) + ' · PlanBench SQLite</title><style>' + CSS + '</style></head><body><a class="skip" href="#main">Skip to results</a><header><a href="#main"><span class="brand-mark" aria-hidden="true"></span>PLANBENCH <small> / SQLite</small></a><span>LOCAL EXPERIMENT / OFFLINE EVIDENCE</span></header><main id="main"><div class="intro"><div class="eyebrow">' + _e(report.get('title')) + '</div><h1>' + headings[state] + '</h1><span class="status ' + state + '">' + state + '</span><p>' + _e(reasons) + '</p></div><div class="context"><span>Database <strong>' + _e(source.get('database')) + '</strong></span><span>SQLite <strong>' + _e(env.get('sqlite')) + '</strong></span><span>Python <strong>' + _e(env.get('python')) + '</strong></span><span>Comparison <strong>' + _e(mode) + '</strong></span><span>Snapshot <strong>' + _e(_number(source.get('snapshot_bytes'))) + ' B</strong></span></div><div class="tracks">' + _track('Baseline', report.get('baseline', {})) + _track('Candidate', report.get('candidate', {})) + '</div>' + difference_section(report) + '<section class="verdict"><h2>What this establishes</h2><div><strong>' + _e(description) + '</strong><p>Only for this database snapshot and these parameters. This is not a proof of SQL equivalence for all data.</p><p style="margin-top:12px">' + _e(ratio_text) + ' <b>Not a speedup.</b> Progress callbacks are instrumented observations, not exact VM instructions. Timings include that instrumentation.</p></div></section><div class="footgrid"><section><h2>Experiment limits</h2><dl>' + limits + '</dl><p>Limits are cooperative, not hard process isolation. A native SQLite operation can delay cancellation.</p></section><section><h2>Read before sharing</h2><ul>' + notes + '</ul></section></div></main><footer>PlanBench SQLite · No network requests. No result rows or parameter values embedded. SQL literals and identifiers remain visible.</footer></body></html>\n'

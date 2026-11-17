@@ -63,6 +63,29 @@ class ReportTests(unittest.TestCase):
         self.assertIn('The results differ.', html)
         self.assertIn('Not a speedup', html)
 
+    def test_difference_evidence_and_tiny_positive_time_are_visible(self):
+        r = example_report()
+        r['status'] = 'different'
+        r['equality']['equivalent'] = False
+        r['baseline']['elapsed_seconds'] = 0.000002
+        r['difference'] = {'matched_rows': 2, 'missing_rows': 1, 'extra_rows': 0, 'schema_change_count': 0,
+            'schema_changes': [], 'examples_limit': 10, 'examples_truncated': True, 'first_mismatch': None,
+            'missing_examples': [{'row_index': 5, 'count': 1, 'column_types': ['INTEGER'], 'column_count': 1, 'columns_truncated': False}], 'extra_examples': []}
+        html = self.render(r)
+        self.assertIn('Difference evidence', html)
+        self.assertIn('row 5', html)
+        self.assertIn('INTEGER', html)
+        self.assertIn('Examples are truncated', html)
+        self.assertIn('&lt;0.0001', html)
+
+    def test_inconsistent_equality_cannot_display_completed_difference_evidence(self):
+        r = example_report()
+        r['difference'] = {'matched_rows': 3}
+        r['equality'].update(comparable=False, equivalent=None)
+        html = self.render(r)
+        self.assertIn('Comparison not established.', html)
+        self.assertNotIn('No schema or required row differences in this completed comparison.', html)
+
     def test_empty_plan_cycle_and_none_do_not_hang(self):
         r = example_report()
         r['baseline']['plan'] = []

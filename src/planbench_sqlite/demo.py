@@ -29,4 +29,10 @@ def create_demo(directory: Path) -> Path:
         with (directory / name).open('x', encoding='utf-8', newline='\n') as stream:
             json.dump(value, stream, indent=2, ensure_ascii=False, allow_nan=False)
             stream.write('\n')
+    for name, case_names in [('suite-clean.json', ['case.json']), ('suite-different.json', ['case.json', 'different.json']), ('suite-inconclusive.json', ['case.json', 'different.json', 'limited.json'])]:
+        suite = {'suite_version': 1, 'title': 'Orders query regression suite', 'timeout_seconds': 30,
+                 'cases': [{'id': Path(case_name).stem, 'case': case_name} for case_name in case_names]}
+        with (directory / name).open('x', encoding='utf-8', newline='\n') as stream:
+            json.dump(suite, stream, indent=2)
+            stream.write('\n')
     return directory / 'case.json'

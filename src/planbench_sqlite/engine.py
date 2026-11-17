@@ -9,6 +9,8 @@ import platform
 import sqlite3
 import time
 
+from . import __version__
+from .difference import describe_difference
 from .engine_config import validate_config
 from .engine_values import encode_row, result_digest, results_equal
 
@@ -248,7 +250,9 @@ def run_experiment(config: dict, *, base_dir: str | Path = '.') -> dict:
     path = (Path(base_dir) / config['database']).resolve()
     report = {'schema_version': 1, 'title': config['title'], 'status': 'inconclusive',
               'comparison': config['comparison'],
-              'environment': {'python': platform.python_version(), 'sqlite': sqlite3.sqlite_version},
+              'environment': {'python': platform.python_version(), 'sqlite': sqlite3.sqlite_version,
+                              'tool_version': __version__, 'comparison_contract': 'typed-rows/v1'},
+              'difference': None,
               'source': {'database': path.name, 'snapshot_bytes': None}, 'limits': limits,
               'baseline': _empty_arm(config['baseline']), 'candidate': _empty_arm(config['candidate']),
               'equality': {'comparable': False, 'equivalent': None, 'schema_equal': None,
@@ -285,6 +289,9 @@ def run_experiment(config: dict, *, base_dir: str | Path = '.') -> dict:
                     schema_equal = a['columns'] == b['columns']
                     equal = schema_equal and results_equal(rows['baseline'], rows['candidate'], config['comparison'])
                     comparison_budget.check()
+                    difference = describe_difference(rows['baseline'], rows['candidate'], a['columns'], b['columns'], config['comparison'], comparison_budget.check)
+                    comparison_budget.check()
+                    report['difference'] = difference
                     report['status'] = 'equivalent' if equal else 'different'
                     report['equality'].update(comparable=True, equivalent=equal, schema_equal=schema_equal,
                                              reason=('Schemas and typed rows match for this snapshot' if equal else
