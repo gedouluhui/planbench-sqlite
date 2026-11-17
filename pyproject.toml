@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "planbench-sqlite"
+version = "0.1.0"
+description = "Same SQLite snapshot, two query plans, exact bounded result comparison, one offline report."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "gedouluhui"}]
+keywords = ["sqlite", "query-plan", "database", "index", "regression-testing"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Database",
+  "Topic :: Software Development :: Testing",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/gedouluhui/planbench-sqlite"
+Documentation = "https://github.com/gedouluhui/planbench-sqlite/blob/main/docs/CONTRACT.md"
+Issues = "https://github.com/gedouluhui/planbench-sqlite/issues"
+
+[project.scripts]
+planbench-sqlite = "planbench_sqlite.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

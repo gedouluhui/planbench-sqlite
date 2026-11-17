@@ -1,0 +1,35 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.11', '3.13']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install the package without runtime dependencies
+        run: python -m pip install .
+      - name: Run real SQLite and CLI tests
+        run: python -m unittest discover -s tests -v
+      - name: Run the installed offline demo
+        run: python -m planbench_sqlite demo --out .ci-demo
+      - name: Install build tooling
+        run: python -m pip install build
+      - name: Build distributions
+        run: python -m build
+      - name: Check actual source archive documents and links
+        run: python scripts/check_dist.py

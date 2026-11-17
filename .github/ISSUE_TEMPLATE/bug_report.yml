@@ -1,0 +1,28 @@
+name: Reproducible query experiment
+description: Share a minimal self-generated case, never a private database.
+title: '[Bug] '
+body:
+  - type: markdown
+    attributes:
+      value: 'Do not attach production databases, credentials, bound secrets, or sensitive SQL literals. A tiny self-generated CREATE TABLE/INSERT example is enough.'
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment
+      description: Python, SQLite, operating system, and PlanBench version.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Provide a self-generated database setup and sanitized case JSON.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+      description: Include exit code and outcome. Explain why the outcome is wrong.
+    validations:
+      required: true

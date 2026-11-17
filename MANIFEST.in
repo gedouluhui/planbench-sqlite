@@ -1,0 +1,7 @@
+include README.md README.zh-CN.md LICENSE CONTRIBUTING.md CHANGELOG.md
+include docs/CONTRACT.md docs/index.html docs/different.html docs/limited.html
+include scripts/check_dist.py
+recursive-include tests *.py
+prune .local
+prune docs/superpowers
+global-exclude __pycache__ *.py[cod]
