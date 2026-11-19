@@ -1,5 +1,7 @@
 # PlanBench SQLite
 
+[![CI](https://github.com/gedouluhui/planbench-sqlite/actions/workflows/ci.yml/badge.svg)](https://github.com/gedouluhui/planbench-sqlite/actions/workflows/ci.yml)
+
 **Try an index. Keep the evidence. Don't mistake a faster wrong answer for an optimization.**
 
 PlanBench runs two queries against disposable clones of the **same SQLite snapshot**, compares their typed results, and produces one offline report containing both execution plans. It has no runtime dependencies, server, API key or telemetry.
