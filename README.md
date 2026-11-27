@@ -173,3 +173,34 @@ python scripts/mutation_check.py
 Tests execute real SQLite databases and real CLI subprocesses, including source-file protection, committed WAL data, result-type distinctions, duplicate multiplicity, incomplete runs and report injection strings. No paid service is needed. Build with `python -m pip install build` followed by `python -m build`.
 
 MIT licensed. The implementation and demonstration data are original to this project; Python's bundled SQLite retains its own license terms. Development was AI-assisted; correctness claims must be supported by reproducible tests, not authorship claims.
+
+## Quickstart and support
+
+### Problem
+Compare two SQLite query/index variants against the same snapshot so a faster wrong answer cannot be mistaken for a safe optimization.
+
+### Install
+```sh
+python -m pip install .
+```
+
+### Success
+```sh
+planbench-sqlite demo --out demo-output
+```
+Expected: The deterministic demo writes equivalent, different, and budget-limited evidence; exit 0.
+
+### Deliberate failure
+```sh
+planbench-sqlite compare demo-output/different.json
+```
+Expected: The changed predicate produces different typed rows and exits 1.
+
+### Evidence and coverage boundaries
+Evidence uses real SQLite databases, backup snapshots including committed WAL data, deny-by-default SQL authorization, strict typed row comparison, subprocess exit-code tests, output protection, and mutation checks. Results are one-snapshot evidence, not a proof that arbitrary SQL queries are equivalent.
+
+### Support status
+Version 0.2.0 supports Python 3.11+ with SQLite. It is an early, narrowly scoped tool for trusted local ordinary SQLite databases. Maintenance is best-effort with no SLA or production certification.
+
+### Limitations
+It is not a sandbox for malicious databases or SQL denial of service. Limits are cooperative and not a hard RSS cap. Reports omit rows and bound values but retain SQL text, literals, identifiers, and the database basename.

@@ -1,5 +1,9 @@
 # Changelog
 
+
+## Unreleased
+
+- Align public governance, bilingual quickstarts, issue templates, and documentation validation.
 ## 0.2.0 — Difference evidence and regression suites
 
 - Explain complete mismatches with exact row-occurrence counts, zero-based source positions, schema changes and bounded type evidence without exporting raw rows.
