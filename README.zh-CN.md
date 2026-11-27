@@ -72,3 +72,34 @@ planbench-sqlite suite demo-output/suite-inconclusive.json
 - 当前是早期开发者工具；没有把本机测试包装成生产性能、真实用户或星数保证。
 
 开发测试：`python -m unittest discover -s tests -v`。详见 [精确契约](docs/CONTRACT.md)。代码与自制演示数据采用 MIT；开发由 AI 辅助，正确性以可复跑证据为准。
+
+## 快速开始与支持状态
+
+### 问题
+针对同一 SQLite 快照比较两个查询/索引变体，避免把更快但错误的结果误当作安全优化。
+
+### 安装
+```sh
+python -m pip install .
+```
+
+### 成功命令
+```sh
+planbench-sqlite demo --out demo-output
+```
+预期：确定性演示写出等价、不同和预算耗尽证据；退出码 0。
+
+### 故意失败命令
+```sh
+planbench-sqlite compare demo-output/different.json
+```
+预期：变更后的谓词产生不同的类型化行；退出码 1。
+
+### 证据与覆盖边界
+证据使用真实 SQLite 数据库、包含已提交 WAL 数据的备份快照、默认拒绝的 SQL 授权、严格类型行比较、子进程退出码测试、输出保护和变异检查。结果是单快照证据，不是任意 SQL 等价的证明。
+
+### 支持状态
+版本 0.2.0 支持 Python 3.11+ 和 SQLite。它是面向受信任本地普通 SQLite 数据库的早期窄范围工具。维护为尽力而为，不提供 SLA 或生产认证。
+
+### 限制
+它不是恶意数据库或 SQL 拒绝服务攻击的沙箱。限制是协作式的，不是硬 RSS 上限。报告省略行和绑定值，但保留 SQL 文本、字面量、标识符和数据库文件名。
